@@ -19,6 +19,8 @@ Dependencies: libcurl.
 
 ## For Tongji.Student.Portal
 
+In directory `tsp`.
+
 WIP...
 
 ## Contributors
