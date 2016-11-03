@@ -6,8 +6,8 @@
 #include <curl/curl.h>
 using namespace std;
 
-#define TESTUSERNAME "13370089501"
-#define TESTPASSWORD "114018"
+#define TESTUSERNAME ""
+#define TESTPASSWORD ""
 #define LOGIN_SERVLET "https://wlan.ct10000.com/authServlet"
 #define LOGOUT_SERVLET "https://wlan.ct10000.com/logoutServlet"
 
@@ -58,7 +58,7 @@ bool checkPortal() {
  */
 bool checkConnectivity(char *login_url) {
     /*
-     * Connect http://captive.apple.com/ to see if we will get a redirect location.
+     * Connect http://connect.rom.miui.com/ to see if we will get a redirect location.
      */
     CURL *curl;
     CURLcode res;
@@ -70,8 +70,6 @@ bool checkConnectivity(char *login_url) {
         curl_easy_setopt(curl, CURLOPT_URL, "http://connect.rom.miui.com");
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, dummy_write_data);
-
-        /* captive.apple.com is redirected, figure out the redirection! */
 
         /* Perform the request, res will get the return code */
         res = curl_easy_perform(curl);
