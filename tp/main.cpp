@@ -11,7 +11,7 @@
 using namespace std;
 
 string TESTUSERNAME="1452192";
-string TESTPASSWORD="113141";
+string TESTPASSWORD="";
 int checktime=5;
 int retrytime=100;
 
