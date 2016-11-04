@@ -29,21 +29,28 @@ bool checkPortal() {
      * Connect http://172.30.0.94/ to see if there's an error.
      */
     CURL *curl = curl_easy_init();
+    long response_code;
     if(curl) {
-        curl_easy_setopt(curl, CURLOPT_URL, "http://172.30.0.94");
+        curl_easy_setopt(curl, CURLOPT_URL, "http://172.30.0.94/");
 
         /* complete within 2 seconds */
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L);
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, dummy_write_data);
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L);
 
         CURLcode res = curl_easy_perform(curl);
         if(res != CURLE_OK) {
-            //fprintf(stderr, "curl_easy_perform() failed: %s\n",
-                    //curl_easy_strerror(res));
             return false;
         } else {
-            return true;
+            res = curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+            if((res == CURLE_OK) && ((response_code / 100) != 2)) {
+                curl_easy_cleanup(curl);
+                return false;
+            } else {
+                curl_easy_cleanup(curl);
+                return true;
+            }
         }
     } else {
       //  throw runtime_error("Error when establishing connection to TP");
@@ -52,7 +59,7 @@ bool checkPortal() {
 
 bool checkConnectivity() {
     /*
-     * Connect http://captive.apple.com/ to see if we will get a redirect location.
+     * Connect http://connect.rom.miui.com/ to see if we will get a redirect location.
      */
     CURL *curl;
     CURLcode res;
@@ -61,11 +68,9 @@ bool checkConnectivity() {
 
     curl = curl_easy_init();
     if(curl) {
-        curl_easy_setopt(curl, CURLOPT_URL, "http://captive.apple.com");
+        curl_easy_setopt(curl, CURLOPT_URL, "http://connect.rom.miui.com");
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, dummy_write_data);
-
-        /* captive.apple.com is redirected, figure out the redirection! */
 
         /* Perform the request, res will get the return code */
         res = curl_easy_perform(curl);
@@ -76,19 +81,17 @@ bool checkConnectivity() {
             res = curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
             if((res == CURLE_OK) && ((response_code / 100) != 3)) {
                 /* a redirect implies a 3xx response code */
+                curl_easy_cleanup(curl);
                 return true;
-            }
-            else {
+            } else {
                 res = curl_easy_getinfo(curl, CURLINFO_REDIRECT_URL, &location);
 
                 if((res == CURLE_OK) && location) {
-                    //printf("Redirected to: %s\n", location);
+                    curl_easy_cleanup(curl);
                     return false;
                 }
             }
         }
-
-        curl_easy_cleanup(curl);
     } else {
        // throw runtime_error("Error when establishing connection to captive.apple.com");
     }
@@ -126,13 +129,13 @@ bool connectPortal(string username, string password) {
             return false;
         } else {
             if(response_text.find("successfully logged into")==-1) {
+                curl_easy_cleanup(curl);
                 return false;
             } else {
+                curl_easy_cleanup(curl);
                 return true;
             }
         }
-
-        curl_easy_cleanup(curl);
     } else {
         ///throw runtime_error("Error when establishing connection in login");
     }
@@ -156,8 +159,10 @@ bool disconnectPortal() {
             return false;
         } else {
             if(response_text.find("Msg=14")!=-1) {
+                curl_easy_cleanup(curl);
                 return true;
             } else {
+                curl_easy_cleanup(curl);
                 return false;
             }
         }
