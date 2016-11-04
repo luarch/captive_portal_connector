@@ -27,7 +27,9 @@ WIP...
 
 Archie Lu
 
-(TBA)
+Tang Rui
+
+Bjz
 
 ## License
 
