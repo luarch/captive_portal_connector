@@ -1,5 +1,5 @@
 all: main.cpp
-	g++ main.cpp -o  main -lcurl -std=c++11
+	g++ main.cpp -o main -lcurl
 
 .PHONY: clean
 

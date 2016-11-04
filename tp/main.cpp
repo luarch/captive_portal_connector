@@ -1,19 +1,13 @@
 #include <iostream>
-#include <string.h>
+#include <string>
 #include <sstream>
 #include <cstdio>
 #include <cstdlib>
 #include <curl/curl.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <signal.h>
 using namespace std;
 
-string TESTUSERNAME="1452192";
-string TESTPASSWORD="113141";
-int checktime=5;
-int retrytime=100;
+#define TESTUSERNAME "1452266"
+#define TESTPASSWORD ""
 
 size_t dummy_write_data(void *buffer, size_t size, size_t nmemb, void *userp) {
     return size*nmemb;
@@ -53,7 +47,7 @@ bool checkPortal() {
             }
         }
     } else {
-      //  throw runtime_error("Error when establishing connection to TP");
+        throw runtime_error("Error when establishing connection to TP");
     }
 }
 
@@ -93,7 +87,7 @@ bool checkConnectivity() {
             }
         }
     } else {
-       // throw runtime_error("Error when establishing connection to captive.apple.com");
+        throw runtime_error("Error when establishing connection to captive.apple.com");
     }
     return false;
 }
@@ -137,9 +131,9 @@ bool connectPortal(string username, string password) {
             }
         }
     } else {
-        ///throw runtime_error("Error when establishing connection in login");
+        throw runtime_error("Error when establishing connection in login");
     }
-    return true;
+    return 0;
 }
 
 bool disconnectPortal() {
@@ -167,129 +161,31 @@ bool disconnectPortal() {
             }
         }
     } else {
-        //throw runtime_error("Error when establishing connection in logout");
+        throw runtime_error("Error when establishing connection in logout");
     }
     return false;
 }
 
-bool Initialization()
-{
-    FILE *fp;
-    if(fp=fopen("conf.txt","r"))
-    {
-    	int enough=4;
-    	cout<<"Load Configuration File Success"<<endl	;
-    	char bufferread[1024]={'\0'};
-        while(!feof(fp))
-        {
-        	bzero(bufferread,1024);
-	        fgets(bufferread,1024,fp);
-	    	if(bufferread==NULL) 
-	    	{
-	    		fclose(fp);
-	    	}
-	    	else 
-	    	{
-	    	    string read=bufferread;
-	    	    read=read.substr(0,read.find("#",0));
-	    	    if(read=="")
-	    	    {
-	    	   		if(enough) 
-	    				return false;
-	    			else return true;
-	    	    } 
-	    	    string property,value;
-	    	    property=read.substr(0,read.find("=",0));
-	    	    value=read.substr(read.find("=",0)+1,read.length()-read.find("=",0)-1);
-	            //cout<<property<<"="<<value<<endl;
-	            if(property=="username")
-	            {
-	                enough--;
-	                TESTUSERNAME=value.substr(0,value.length()-1);
-				}
-	           	else if(property=="password")
-	            {
-	                enough--;
-	                TESTPASSWORD=value.substr(0,value.length()-1);;
-				}
-	           	else if(property=="retrytime")
-	           	{
-	                enough--;
-	                retrytime=atoi(value.data());
-				}
-				else if(property=="checktime")
-	           	{
-	                enough--;
-	                checktime=atoi(value.data());
-				}
-	    	} 
-    	}
-		cout<<"Configuration file read successfully"<<endl;
-		fclose(fp);
-		return true;
-    }
-	return false;
-}
-
-
 int main() {
     int cmd = 0;
-    pid_t detection=0;
-    signal(SIGCHLD,SIG_IGN);
-    if(!Initialization())
-    {
-    	cout<<"Configuration file read failed"<<endl;
-    	return -1;
-    }
     while(true) {
         cin >> cmd;
         switch(cmd) {
             case 0:
-            {
-                kill(detection,SIGSTOP);
                 cout << "Exit" << endl;
-                return 0;
-            }
+                exit(0);
+                break;
             case 1:
-            {
-            	cout << "ConnectPortal " <<((connectPortal(TESTUSERNAME, TESTPASSWORD)==true)?"Success":"Failed")<< endl;
-                if(!detection)
-                {
-                	detection=fork();
-	                if(!detection)
-	                {
-	                	while(getppid()!=1)
-	                	{
-		                	if(checkPortal())
-		                	{
-		                		if(!checkConnectivity())
-		                		{
-		                			cout<<"Connection Dropped"<<endl;
-		                            if(connectPortal(TESTUSERNAME,TESTPASSWORD))
-		           	                  	cout<<"ReConnect Success"<<endl;	
-		                		}
-		                		sleep(retrytime);
-		                	}
-		                	else 
-		                	{
-		                		cout<<"sleep wait for retry"<<endl;
-		                		sleep(checktime);
-		                	}
-	                	}
-	                	exit(0);
-	                
-	            }
+                cout << "CheckPortal " << checkPortal() << endl;
                 break;
-            }
             case 2:
-            {
-            	kill(detection,SIGSTOP);
-            	detection=0;
-                cout << "DisconnectPortal " << ((disconnectPortal()==true)?"Success":"Failed") << endl;
+                cout << "CheckConnectivity " << checkConnectivity() << endl;
                 break;
-            }
-            case 3://for test reconnect 
-            	cout << "DisconnectPortal " << ((disconnectPortal()==true)?"Success":"Failed") << endl;
+            case 3:
+                cout << "ConnectPortal " << connectPortal(TESTUSERNAME, TESTPASSWORD) << endl;
+                break;
+            case 4:
+                cout << "DisconnectPortal " << disconnectPortal() << endl;
                 break;
         }
     }
