@@ -1,5 +1,4 @@
 #include <iostream>
-#include <string>
 #include <string.h>
 #include <sstream>
 #include <cstdio>
@@ -30,28 +29,21 @@ bool checkPortal() {
      * Connect http://172.30.0.94/ to see if there's an error.
      */
     CURL *curl = curl_easy_init();
-    long response_code;
     if(curl) {
-        curl_easy_setopt(curl, CURLOPT_URL, "http://172.30.0.94/");
+        curl_easy_setopt(curl, CURLOPT_URL, "http://172.30.0.94");
 
         /* complete within 2 seconds */
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L);
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, dummy_write_data);
-        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L);
 
         CURLcode res = curl_easy_perform(curl);
         if(res != CURLE_OK) {
+            //fprintf(stderr, "curl_easy_perform() failed: %s\n",
+                    //curl_easy_strerror(res));
             return false;
         } else {
-            res = curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
-            if((res == CURLE_OK) && ((response_code / 100) != 2)) {
-                curl_easy_cleanup(curl);
-                return false;
-            } else {
-                curl_easy_cleanup(curl);
-                return true;
-            }
+            return true;
         }
     } else {
       //  throw runtime_error("Error when establishing connection to TP");
@@ -60,7 +52,7 @@ bool checkPortal() {
 
 bool checkConnectivity() {
     /*
-     * Connect http://connect.rom.miui.com/ to see if we will get a redirect location.
+     * Connect http://captive.apple.com/ to see if we will get a redirect location.
      */
     CURL *curl;
     CURLcode res;
@@ -69,9 +61,11 @@ bool checkConnectivity() {
 
     curl = curl_easy_init();
     if(curl) {
-        curl_easy_setopt(curl, CURLOPT_URL, "http://connect.rom.miui.com");
+        curl_easy_setopt(curl, CURLOPT_URL, "http://captive.apple.com");
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, dummy_write_data);
+
+        /* captive.apple.com is redirected, figure out the redirection! */
 
         /* Perform the request, res will get the return code */
         res = curl_easy_perform(curl);
@@ -82,17 +76,19 @@ bool checkConnectivity() {
             res = curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
             if((res == CURLE_OK) && ((response_code / 100) != 3)) {
                 /* a redirect implies a 3xx response code */
-                curl_easy_cleanup(curl);
                 return true;
-            } else {
+            }
+            else {
                 res = curl_easy_getinfo(curl, CURLINFO_REDIRECT_URL, &location);
 
                 if((res == CURLE_OK) && location) {
-                    curl_easy_cleanup(curl);
+                    //printf("Redirected to: %s\n", location);
                     return false;
                 }
             }
         }
+
+        curl_easy_cleanup(curl);
     } else {
        // throw runtime_error("Error when establishing connection to captive.apple.com");
     }
@@ -130,13 +126,13 @@ bool connectPortal(string username, string password) {
             return false;
         } else {
             if(response_text.find("successfully logged into")==-1) {
-                curl_easy_cleanup(curl);
                 return false;
             } else {
-                curl_easy_cleanup(curl);
                 return true;
             }
         }
+
+        curl_easy_cleanup(curl);
     } else {
         ///throw runtime_error("Error when establishing connection in login");
     }
@@ -160,10 +156,8 @@ bool disconnectPortal() {
             return false;
         } else {
             if(response_text.find("Msg=14")!=-1) {
-                curl_easy_cleanup(curl);
                 return true;
             } else {
-                curl_easy_cleanup(curl);
                 return false;
             }
         }
@@ -176,60 +170,51 @@ bool disconnectPortal() {
 bool Initialization()
 {
     FILE *fp;
-    if(fp=fopen("conf.txt","r"))
-    {
-    	int enough=4;
-    	cout<<"Load Configuration File Success"<<endl	;
-    	char bufferread[1024]={'\0'};
-        while(!feof(fp))
-        {
-        	bzero(bufferread,1024);
-	        fgets(bufferread,1024,fp);
-	    	if(bufferread==NULL) 
-	    	{
-	    		fclose(fp);
-	    	}
-	    	else 
-	    	{
-	    	    string read=bufferread;
-	    	    read=read.substr(0,read.find("#",0));
-	    	    if(read=="")
-	    	    {
-	    	   		if(enough) 
-	    				return false;
-	    			else return true;
-	    	    } 
-	    	    string property,value;
-	    	    property=read.substr(0,read.find("=",0));
-	    	    value=read.substr(read.find("=",0)+1,read.length()-read.find("=",0)-1);
-	            //cout<<property<<"="<<value<<endl;
-	            if(property=="username")
-	            {
-	                enough--;
-	                TESTUSERNAME=value.substr(0,value.length()-1);
-				}
-	           	else if(property=="password")
-	            {
-	                enough--;
-	                TESTPASSWORD=value.substr(0,value.length()-1);;
-				}
-	           	else if(property=="retrytime")
-	           	{
-	                enough--;
-	                retrytime=atoi(value.data());
-				}
-				else if(property=="checktime")
-	           	{
-	                enough--;
-	                checktime=atoi(value.data());
-				}
-	    	} 
-    	}
-		cout<<"Configuration file read successfully"<<endl;
-		fclose(fp);
-		return true;
+    if(fp=fopen("conf.txt","r")){
+        int enough=4;
+        cout<<"Load Configuration File Success"<<endl;
+        char bufferread[1024]={'\0'};
+        while(!feof(fp)){
+            bzero(bufferread,1024);
+            fgets(bufferread,1024,fp);
+            if(bufferread==NULL) {
+                fclose(fp);
+            }
+            else {
+                string read=bufferread;
+                read=read.substr(0,read.find("#",0));
+                if(read==""){
+                    if(enough) 
+                        return false;
+                    else return true;
+                } 
+                string property,value;
+                property=read.substr(0,read.find("=",0));
+                value=read.substr(read.find("=",0)+1,read.length()-read.find("=",0)-1);
+                //cout<<property<<"="<<value<<endl;
+                if(property=="username"){
+                    enough--;
+                    TESTUSERNAME=value.substr(0,value.length()-1);
+                }
+                else if(property=="password"){
+                    enough--;
+                    TESTPASSWORD=value.substr(0,value.length()-1);;
+                }
+                else if(property=="retrytime"){
+                    enough--;
+                    retrytime=atoi(value.data());
+                }
+                else if(property=="checktime"){
+                    enough--;
+                    checktime=atoi(value.data());
+                }
+            } 
+        }
+        cout<<"Configuration file read successfully"<<endl;
+        fclose(fp);
+        return true;
     }
-	return false;
+    return false;
 }
 
 
@@ -237,62 +222,49 @@ int main() {
     int cmd = 0;
     pid_t detection=0;
     signal(SIGCHLD,SIG_IGN);
-    if(!Initialization())
-    {
-    	cout<<"Configuration file read failed"<<endl;
-    	return -1;
+    if(!Initialization()){
+        cout<<"Configuration file read failed"<<endl;
+        return -1;
     }
     while(true) {
         cin >> cmd;
         switch(cmd) {
             case 0:
-            {
                 kill(detection,SIGSTOP);
                 cout << "Exit" << endl;
                 return 0;
-            }
             case 1:
-            {
-            	cout << "ConnectPortal " <<((connectPortal(TESTUSERNAME, TESTPASSWORD)==true)?"Success":"Failed")<< endl;
-                if(!detection)
-                {
-                	detection=fork();
-	                if(!detection)
-	                {
-	                	while(getppid()!=1)
-	                	{
-		                	if(checkPortal())
-		                	{
-		                		if(!checkConnectivity())
-		                		{
-		                			cout<<"Connection Dropped"<<endl;
-		                            if(connectPortal(TESTUSERNAME,TESTPASSWORD))
-		           	                  	cout<<"ReConnect Success"<<endl;	
-		                		}
-		                		sleep(retrytime);
-		                	}
-		                	else 
-		                	{
-		                		cout<<"sleep wait for retry"<<endl;
-		                		sleep(checktime);
-		                	}
-	                	}
-	                	exit(0);
-	                
-	            }
+                cout << "ConnectPortal " <<((connectPortal(TESTUSERNAME, TESTPASSWORD)==true)?"Success":"Failed")<< endl;
+                if(!detection){
+                    detection=fork();
+                    if(!detection){
+                        while(getppid()!=1){
+                            if(checkPortal()){
+                                if(!checkConnectivity()){
+                                    cout<<"Connection Dropped"<<endl;
+                                    if(connectPortal(TESTUSERNAME,TESTPASSWORD))
+                                        cout<<"ReConnect Success"<<endl;    
+                                }
+                                sleep(retrytime);
+                            }
+                            else {
+                                cout<<"sleep wait for retry"<<endl;
+                                sleep(checktime);
+                            }
+                        }
+                        exit(0);
+                    }
+                }
                 break;
-            }
             case 2:
-            {
-            	kill(detection,SIGSTOP);
-            	detection=0;
+                kill(detection,SIGSTOP);
+                detection=0;
                 cout << "DisconnectPortal " << ((disconnectPortal()==true)?"Success":"Failed") << endl;
                 break;
-            }
             case 3://for test reconnect 
-            	cout << "DisconnectPortal " << ((disconnectPortal()==true)?"Success":"Failed") << endl;
+                cout << "DisconnectPortal " << ((disconnectPortal()==true)?"Success":"Failed") << endl;
                 break;
         }
     }
-    return 0;
+return 0;
 }
