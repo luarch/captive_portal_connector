@@ -1,4 +1,4 @@
 username=18101956909 # username
-password=131413 # password
+password= # password
 retrytime=15 # retrytime
 checktime=900 # checktime
