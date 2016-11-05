@@ -1,13 +1,20 @@
 #include <iostream>
 #include <string>
+#include <string.h>
 #include <sstream>
 #include <cstdio>
 #include <cstdlib>
 #include <curl/curl.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <signal.h>
 using namespace std;
 
-#define TESTUSERNAME ""
-#define TESTPASSWORD ""
+string TESTUSERNAME;
+string TESTPASSWORD;
+int retrytime=900;
+int checktime=15;
 #define LOGIN_SERVLET "https://wlan.ct10000.com/authServlet"
 #define LOGOUT_SERVLET "https://wlan.ct10000.com/logoutServlet"
 
@@ -30,7 +37,7 @@ bool checkPortal() {
         curl_easy_setopt(curl, CURLOPT_URL, "https://wlan.ct10000.com/errorpage/showNatFail_ctsh.jsp");
 
         /* complete within 2 seconds */
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, dummy_write_data);
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L);
@@ -49,7 +56,7 @@ bool checkPortal() {
             }
         }
     } else {
-        throw runtime_error("Error when establishing connection to TP");
+      //  throw runtime_error("Error when establishing connection to TP");
     }
 }
 
@@ -95,7 +102,7 @@ bool checkConnectivity(char *login_url) {
 
         curl_easy_cleanup(curl);
     } else {
-        throw runtime_error("Error when establishing connection to captive.apple.com");
+       // throw runtime_error("Error when establishing connection to captive.apple.com");
     }
     return false;
 }
@@ -143,7 +150,7 @@ bool connectPortal(string username, string password, char* login_url, char* logo
 
         curl_easy_cleanup(curl);
     } else {
-        throw runtime_error("Error when establishing connection to find paramStr");
+       // throw runtime_error("Error when establishing connection to find paramStr");
     }
 
     /*
@@ -205,7 +212,7 @@ bool connectPortal(string username, string password, char* login_url, char* logo
 
         curl_easy_cleanup(curl);
     } else {
-        throw runtime_error("Error when establishing connection in login");
+       // throw runtime_error("Error when establishing connection in login");
     }
     return false;
 }
@@ -252,34 +259,118 @@ bool disconnectPortal(char* logout_url) {
             return true;
         }
     } else {
-        throw runtime_error("Error when establishing connection in logout");
+       // throw runtime_error("Error when establishing connection in logout");
+    }
+    return false;
+}
+
+bool Initialization()
+{
+    FILE *fp;
+    if(fp=fopen("conf.txt","r")){
+        int enough=4;
+        cout<<"Load Configuration File Success"<<endl;
+        char bufferread[1024]={'\0'};
+        while(!feof(fp)){
+            bzero(bufferread,1024);
+            fgets(bufferread,1024,fp);
+            if(bufferread==NULL) {
+                fclose(fp);
+            }
+            else {
+                string read=bufferread;
+                read=read.substr(0,read.find("#",0));
+                if(read==""){
+                    if(enough) 
+                        return false;
+                    else return true;
+                } 
+                string property,value;
+                property=read.substr(0,read.find("=",0));
+                value=read.substr(read.find("=",0)+1,read.length()-read.find("=",0)-1);
+                //cout<<property<<"="<<value<<endl;
+                if(property=="username"){
+                    enough--;
+                    TESTUSERNAME=value.substr(0,value.length()-1);
+                }
+                else if(property=="password"){
+                    enough--;
+                    TESTPASSWORD=value.substr(0,value.length()-1);;
+                }
+                else if(property=="retrytime"){
+                    enough--;
+                    retrytime=atoi(value.data());
+                }
+                else if(property=="checktime"){
+                    enough--;
+                    checktime=atoi(value.data());
+                }
+            } 
+        }
+        cout<<"Configuration file read successfully"<<endl;
+        fclose(fp);
+        return true;
     }
     return false;
 }
 
 int main() {
+    signal(SIGCHLD,SIG_IGN);
     int cmd = 0;
-    char loginUrl[512]={0}, logoutUrl[512]={0};
-    while(true) {
-        cin >> cmd;
-        switch(cmd) {
+    char loginUrl[2048]={0}, logoutUrl[2048]={0};
+    int Detection=0;
+    if(!Initialization()){
+        cout<<"Configuration file read failed"<<endl;
+        return 1;
+    }
+    while(true){
+         cin>>cmd;
+         switch(cmd){
             case 0:
-                cout << "Exit" << endl;
-                exit(0);
-                break;
+                if(Detection)
+                    kill(Detection,SIGSTOP);
+                cout<<"Exit"<<endl;
+                return 1;
             case 1:
-                cout << "CheckPortal " << checkPortal() << endl;
+                if(checkPortal()){
+                    if(!checkConnectivity(loginUrl))
+                        cout<<"ConnectPortal "<<((connectPortal(TESTUSERNAME,TESTPASSWORD,loginUrl,logoutUrl)==true)?"Success":"Fail")<<endl;
+                    else cout<<"Already Connect"<<endl;
+                    if(!Detection){
+                        Detection=fork();
+                        if(!Detection){
+                            do{
+                                if(checkPortal()){
+                                    if(!checkConnectivity(loginUrl))
+                                        cout<<"ReConnectPortal "<<((connectPortal(TESTUSERNAME,TESTPASSWORD,loginUrl,logoutUrl)==true)?"Success":"Fail")<<endl;
+                                    sleep(retrytime);
+                                }
+                                else
+                                    sleep(checktime);
+                            }while(getppid()!=1);
+                            exit(0);
+                        }
+                    }
+                }else
+                    cout<<"Please Connect tongji-student-portal First"<<endl;
                 break;
             case 2:
-                cout << "CheckConnectivity " << checkConnectivity(loginUrl) << endl;
+                if(checkConnectivity(loginUrl)){
+                    if(Detection){
+                        kill(Detection,SIGSTOP);
+                        Detection=0;
+                    }
+                    cout<<"DisconnectPortal "<<((disconnectPortal(logoutUrl)==true)?"Success":"Fail")<<endl;
+                }
+                else 
+                    cout<<"Already Disconnect"<<endl;
                 break;
             case 3:
-                cout << "ConnectPortal " << connectPortal(TESTUSERNAME, TESTPASSWORD, loginUrl, logoutUrl) << endl;
+                if(!checkConnectivity(loginUrl))
+                        cout<<"ConnectPortal "<<((connectPortal(TESTUSERNAME,TESTPASSWORD,loginUrl,logoutUrl)==true)?"Success":"Fail")<<endl;
+            default:
                 break;
-            case 4:
-                cout << "DisconnectPortal " << disconnectPortal(logoutUrl) << endl;
-                break;
-        }
+         }
     }
     return 0;
 }
