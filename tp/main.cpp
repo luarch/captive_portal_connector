@@ -1,13 +1,21 @@
 #include <iostream>
 #include <string>
+#include <string.h>
 #include <sstream>
 #include <cstdio>
 #include <cstdlib>
 #include <curl/curl.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <signal.h>
+#include <stdexcept>
 using namespace std;
 
-#define TESTUSERNAME "1452266"
-#define TESTPASSWORD ""
+string  TESTUSERNAME;
+string  TESTPASSWORD;
+int retrytime=15;
+int checktime=900;
 
 size_t dummy_write_data(void *buffer, size_t size, size_t nmemb, void *userp) {
     return size*nmemb;
@@ -166,26 +174,113 @@ bool disconnectPortal() {
     return false;
 }
 
+bool Initialization()
+{
+    FILE *fp;
+    if(fp=fopen("autologin.cfg","r")){
+        int enough=4;
+        cout<<"Load Configuration File Success"<<endl;
+        char bufferread[1024]={'\0'};
+        while(!feof(fp)){
+            bzero(bufferread,1024);
+            fgets(bufferread,1024,fp);
+            if(bufferread==NULL) {
+                fclose(fp);
+            }
+            else {
+                string read=bufferread;
+                read=read.substr(0,read.find("#",0));
+                if(read==""){
+                    if(enough)
+                        return false;
+                    else return true;
+                } 
+                string property,value;
+                property=read.substr(0,read.find("=",0));
+                value=read.substr(read.find("=",0)+1,read.length()-read.find("=",0)-1);
+                //cout<<property<<"="<<value<<endl;
+                if(property=="username"){
+                    enough--;
+                    TESTUSERNAME=value.substr(0,value.length()-1);
+                }
+                else if(property=="password"){
+                    enough--;
+                    TESTPASSWORD=value.substr(0,value.length()-1);;
+                }
+                else if(property=="retrytime"){
+                    enough--;
+                    retrytime=atoi(value.data());
+                }
+                else if(property=="checktime"){
+                    enough--;
+                    checktime=atoi(value.data());
+                }
+            } 
+        }
+        cout<<"Configuration file read successfully"<<endl;
+        fclose(fp);
+        return true;
+    }
+    return false;
+}
 int main() {
     int cmd = 0;
+    int Detection=0;
+    signal(SIGCHLD,SIG_IGN);
+    if(!Initialization()){
+        cout<<"Configuration File Read Failed"<<endl;
+        return 0;
+    }
     while(true) {
         cin >> cmd;
         switch(cmd) {
             case 0:
+                if(Detection)
+                    kill(Detection,SIGSTOP);
                 cout << "Exit" << endl;
-                exit(0);
-                break;
+                return 0;
             case 1:
-                cout << "CheckPortal " << checkPortal() << endl;
+                if(checkPortal()){
+                    if(!checkConnectivity()){
+                        cout<<"ConnectPortal "<<(connectPortal(TESTUSERNAME,TESTPASSWORD)==true?"Success":"Fail")<<endl;
+                        // Monitor the connection process
+                        if(!Detection){
+                            Detection=fork();
+                            if(!Detection)
+                            {
+                                do{
+                                    if(checkPortal()){
+                                        if(!checkConnectivity()){
+                                            cout<<"Connection Dropped"<<endl;
+                                            cout<<"Reconnect "<<(connectPortal(TESTUSERNAME,TESTPASSWORD)==true?"Success":"Fail")<<endl;
+                                        }
+                                        sleep(retrytime);
+                                    }else{
+                                        cout<<"Not Connected to tongji-portal"<<endl;
+                                        sleep(checktime);
+                                    }
+                                }while(getppid()!=1);
+                                exit(0);
+                            }
+                        }
+                    }
+                    else
+                        cout<<"Already Connect"<<endl;
+                }else 
+                    cout<<"Please Connect to tongji-portal First"<<endl;
                 break;
             case 2:
-                cout << "CheckConnectivity " << checkConnectivity() << endl;
+                if(Detection){
+                    kill(Detection,SIGSTOP);
+                    Detection=0;
+                }
+                cout << "DisconnectPortal " << (disconnectPortal()==true?"Success":"Fail") << endl;
                 break;
+            // Test Reconnect
             case 3:
-                cout << "ConnectPortal " << connectPortal(TESTUSERNAME, TESTPASSWORD) << endl;
+                cout << "DisconnectPortal " << (disconnectPortal()==true?"Success":"Fail") << endl;
                 break;
-            case 4:
-                cout << "DisconnectPortal " << disconnectPortal() << endl;
+            default:
                 break;
         }
     }
