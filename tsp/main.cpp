@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <signal.h>
+#include <stdexcept>
 using namespace std;
 
 string TESTUSERNAME;
@@ -37,7 +38,7 @@ bool checkPortal() {
         curl_easy_setopt(curl, CURLOPT_URL, "https://wlan.ct10000.com/errorpage/showNatFail_ctsh.jsp");
 
         /* complete within 2 seconds */
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L);
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, dummy_write_data);
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L);
@@ -56,7 +57,7 @@ bool checkPortal() {
             }
         }
     } else {
-      //  throw runtime_error("Error when establishing connection to TP");
+        throw runtime_error("Error when establishing connection to TP");
     }
 }
 
@@ -102,7 +103,7 @@ bool checkConnectivity(char *login_url) {
 
         curl_easy_cleanup(curl);
     } else {
-       // throw runtime_error("Error when establishing connection to captive.apple.com");
+        throw runtime_error("Error when establishing connection to captive.apple.com");
     }
     return false;
 }
@@ -150,7 +151,7 @@ bool connectPortal(string username, string password, char* login_url, char* logo
 
         curl_easy_cleanup(curl);
     } else {
-       // throw runtime_error("Error when establishing connection to find paramStr");
+        throw runtime_error("Error when establishing connection to find paramStr");
     }
 
     /*
@@ -212,7 +213,7 @@ bool connectPortal(string username, string password, char* login_url, char* logo
 
         curl_easy_cleanup(curl);
     } else {
-       // throw runtime_error("Error when establishing connection in login");
+        throw runtime_error("Error when establishing connection in login");
     }
     return false;
 }
@@ -259,7 +260,7 @@ bool disconnectPortal(char* logout_url) {
             return true;
         }
     } else {
-       // throw runtime_error("Error when establishing connection in logout");
+        throw runtime_error("Error when establishing connection in logout");
     }
     return false;
 }
